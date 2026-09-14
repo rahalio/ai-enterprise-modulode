@@ -1,0 +1,526 @@
+openapi: 3.0.3
+info:
+  title: Modulode
+  version: 0.1.0
+  description: >-
+    ML platform infrastructure control plane for modular package sets, enforced
+    versioning, historical serving, and multi-model pipelines.
+  x-product-slug: ai-enterprise-modulode
+  x-source: ai-in-enterprise/MLInfrastructurePart2FinalV2/
+servers:
+  - url: https://api.example.com
+tags:
+  - name: PackageSets
+  - name: Models
+  - name: Versions
+  - name: Pipelines
+  - name: Invocations
+  - name: Admin
+paths:
+  /v1/package-sets:
+    get:
+      operationId: listPackageSets
+      tags: [PackageSets]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Package sets page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListEnvelopePackageSet" }
+    post:
+      operationId: createPackageSet
+      tags: [PackageSets]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackageSet" }
+      responses:
+        "201":
+          description: Package set created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopePackageSet" }
+  /v1/models:
+    get:
+      operationId: listModels
+      tags: [Models]
+      security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Models page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListEnvelopeModel" }
+    post:
+      operationId: createModel
+      tags: [Models]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ModelCreate" }
+      responses:
+        "201":
+          description: Model created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeModel" }
+  /v1/models/{modelId}/versions:
+    parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listModelVersions
+      tags: [Versions]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Versions page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListEnvelopeModelVersion" }
+    post:
+      operationId: uploadModelVersion
+      tags: [Versions]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ModelVersionCreate" }
+      responses:
+        "201":
+          description: Version uploaded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeModelVersion" }
+  /v1/models/{modelId}/versions/{versionId}/test:
+    parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: testModelVersion
+      tags: [Invocations]
+      security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvocationRequest" }
+      responses:
+        "200":
+          description: Test invocation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeInvocationResult" }
+  /v1/models/{modelId}/versions/{versionId}/publish:
+    parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: publishModelVersion
+      tags: [Versions]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [changeClass]
+              properties:
+                changeClass:
+                  type: string
+                  enum: [major, minor, revision]
+                notes: { type: string }
+      responses:
+        "200":
+          description: Version published immutable endpoint
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeModelVersion" }
+  /v1/models/{modelId}/versions/{versionId}/call:
+    parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: callModelVersion
+      tags: [Invocations]
+      security: [{ ApiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvocationRequest" }
+      responses:
+        "200":
+          description: Inference result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeInvocationResult" }
+        "409":
+          description: Version retired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /v1/models/{modelId}/versions/{versionId}/retire:
+    parameters:
+      - name: modelId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: versionId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: retireModelVersion
+      tags: [Admin]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+                complianceCode: { type: string }
+      responses:
+        "200":
+          description: Version retired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeModelVersion" }
+  /v1/pipelines:
+    get:
+      operationId: listPipelines
+      tags: [Pipelines]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Pipelines page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListEnvelopePipeline" }
+    post:
+      operationId: createPipeline
+      tags: [Pipelines]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PipelineCreate" }
+      responses:
+        "201":
+          description: Pipeline created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopePipeline" }
+  /v1/pipelines/{pipelineId}/run:
+    parameters:
+      - name: pipelineId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: runPipeline
+      tags: [Pipelines]
+      security: [{ ApiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvocationRequest" }
+      responses:
+        "200":
+          description: Pipeline result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataEnvelopeInvocationResult" }
+components:
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    UnprocessableEntity:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    ResponseMeta:
+      type: object
+      required: [requestId, timestamp]
+      properties:
+        requestId: { type: string }
+        timestamp: { type: string, format: date-time }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+
+    PackageSet:
+      type: object
+      required: [name, language, framework]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        language: { type: string }
+        framework: { type: string }
+        estimatedImageMb: { type: number }
+        status:
+          type: string
+          enum: [draft, active, deprecated]
+    Model:
+      type: object
+      required: [id, name, packageSetId]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        packageSetId: { type: string }
+        ownerId: { type: string }
+    ModelCreate:
+      type: object
+      required: [name, packageSetId]
+      properties:
+        name: { type: string }
+        packageSetId: { type: string }
+        ownerId: { type: string }
+    ModelVersion:
+      type: object
+      required: [id, modelId, semver, status]
+      properties:
+        id: { type: string }
+        modelId: { type: string }
+        semver: { type: string }
+        status:
+          type: string
+          enum: [uploaded, tested, published, retired]
+        changeClass:
+          type: string
+          enum: [major, minor, revision]
+        endpointUrl: { type: string }
+        chargebackTag: { type: string }
+        retirementReason: { type: string }
+    ModelVersionCreate:
+      type: object
+      required: [artifactUri]
+      properties:
+        artifactUri: { type: string }
+        changeClass:
+          type: string
+          enum: [major, minor, revision]
+        chargebackTag: { type: string }
+        configDelta:
+          type: object
+          additionalProperties: { type: string }
+    InvocationRequest:
+      type: object
+      required: [input]
+      properties:
+        input:
+          type: object
+          additionalProperties: true
+    InvocationResult:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        modelVersionId: { type: string }
+        latencyMs: { type: number }
+        stepErrors:
+          type: array
+          items: { type: string }
+    Pipeline:
+      type: object
+      required: [id, name, steps]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/PipelineStep" }
+    PipelineStep:
+      type: object
+      required: [order, modelId, versionId]
+      properties:
+        order: { type: integer }
+        modelId: { type: string }
+        versionId: { type: string }
+    PipelineCreate:
+      type: object
+      required: [name, steps]
+      properties:
+        name: { type: string }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/PipelineStep" }
+
+    DataEnvelopePackageSet:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: "#/components/schemas/PackageSet" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    ListEnvelopePackageSet:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/PackageSet" }
+            nextCursor: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+
+    DataEnvelopeModel:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: "#/components/schemas/Model" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    ListEnvelopeModel:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Model" }
+            nextCursor: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+
+    DataEnvelopeModelVersion:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: "#/components/schemas/ModelVersion" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    ListEnvelopeModelVersion:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/ModelVersion" }
+            nextCursor: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+
+    DataEnvelopePipeline:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: "#/components/schemas/Pipeline" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    ListEnvelopePipeline:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Pipeline" }
+            nextCursor: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
+
+    DataEnvelopeInvocationResult:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: "#/components/schemas/InvocationResult" }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+    ListEnvelopeInvocationResult:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/InvocationResult" }
+            nextCursor: { type: string }
+        meta: { $ref: "#/components/schemas/ResponseMeta" }
+
